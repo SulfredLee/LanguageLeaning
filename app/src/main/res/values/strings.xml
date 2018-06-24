@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">Language Leaning</string>
+    <string name="radio_time">Time</string>
+    <string name="radio_error">Error</string>
+    <string name="radio_random">Random</string>
+    <string name="button_start">Start</string>
+    <string name="error_info">Exercise will be sorted by error rate</string>
+    <string name="time_info">Exercise will be sorted by time</string>
+    <string name="random_info">Exercise will be randomized</string>
+    <string name="button_speak">Speak</string>
+    <string name="button_show">Show</string>
+    <string name="button_do_not_know">I don\'t know</string>
+    <string name="button_next">Next</string>
+    <string name="button_check">Check</string>
+    <string name="radio_category">Category</string>
+    <string name="radio_category_time">Category_time</string>
+    <string name="button_back_home">Back Home</string>
+</resources>
