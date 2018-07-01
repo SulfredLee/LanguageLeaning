@@ -13,6 +13,8 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -40,10 +42,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+
+import static java.lang.Math.abs;
 
 public class ExerciseActivity extends AppCompatActivity {
     private final String this_class_name = this.getClass().getSimpleName();
@@ -97,6 +103,7 @@ public class ExerciseActivity extends AppCompatActivity {
             next_word_index = 0;
             json_words_done = new JSONArray();
             json_words_exercise = new JSONArray();
+            removeOldErrorTimestamp();
             switch (exercise_type) {
                 case "error":
                     initJSONWords_error();
@@ -157,17 +164,7 @@ public class ExerciseActivity extends AppCompatActivity {
         button_show_chi.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                String chi_word = "";
-                try {
-                    chi_word = json_current_word.getString("chi_word");
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-                if (chi_word.equals(editText_chi.getText().toString())) {
-                    editText_chi.setText("");
-                } else {
-                    editText_chi.setText(chi_word);
-                }
+                toggleShowChi();
             }
         });
         button_next.setOnClickListener(new View.OnClickListener() {
@@ -193,8 +190,82 @@ public class ExerciseActivity extends AppCompatActivity {
                 finish();
             }
         });
+        editText_eng.addTextChangedListener(new TextWatcher() {
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+
+            @Override
+            public void beforeTextChanged(CharSequence s, int start,
+                                          int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start,
+                                      int before, int count) {
+                String eng_word;
+                try {
+                    eng_word = json_current_word.getString("eng_word");
+                    if (s.toString().equals(eng_word)) {
+                        showChi();
+                    } else {
+                        editText_chi.setText("");
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
         updateViewsStatus();
         Log.i(this_class_name, "onCreate(): OUT");
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        saveWords();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+    }
+    private void showChi() {
+        String chi_word = "";
+        try {
+            chi_word = json_current_word.getString("chi_word");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        editText_chi.setText(chi_word);
+    }
+    private void toggleShowChi() {
+        String chi_word = "";
+        try {
+            chi_word = json_current_word.getString("chi_word");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        if (chi_word.equals(editText_chi.getText().toString())) {
+            editText_chi.setText("");
+        } else {
+            editText_chi.setText(chi_word);
+        }
     }
     private void initJSONWords_category() {
         List<JSONObject> jsonValues = new ArrayList<JSONObject>();
@@ -398,9 +469,9 @@ public class ExerciseActivity extends AppCompatActivity {
                 Random rand = new Random();
                 int shifter = rand.nextInt(7) - 3; // min = -3, max = 3, rand.nextInt((max - min) + 1) + min
                 // update next time
-                Date next_time = new Date(json_current_word.getLong("next_time"));
+                Date current_time = new Date();
                 Calendar c = Calendar.getInstance();
-                c.setTime(next_time);
+                c.setTime(current_time);
                 if (correct_count == 1) {
                     c.add(Calendar.HOUR, 8 + shifter);
                 } else if (correct_count == 2) {
@@ -408,8 +479,7 @@ public class ExerciseActivity extends AppCompatActivity {
                 } else {
                     c.add(Calendar.DATE, 7 + shifter);
                 }
-                next_time = c.getTime();
-                json_current_word.put("next_time", next_time.getTime());
+                json_current_word.put("next_time", c.getTimeInMillis());
             } else {
                 editText_eng.setText(user_eng_word + "  ----  " + eng_word);
                 editText_eng.setTextColor(Color.RED);
@@ -418,7 +488,36 @@ public class ExerciseActivity extends AppCompatActivity {
                 // update error count
                 int error_count = json_current_word.getInt("error_count");
                 error_count++;
+                // add error timestamp
+                JSONArray error_timestamps = json_current_word.getJSONArray("error_timestamps");
+                Date current_time = new Date();
+                error_timestamps.put(current_time.getTime());
                 json_current_word.put("error_count", error_count);
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+    private void removeOldErrorTimestamp() {
+        try {
+            Date current_time = new Date();
+            for (int i = 0; i < json_words.length(); i++) {
+                JSONObject json_word = json_words.getJSONObject(i);
+                int error_count = json_word.getInt("error_count");
+                JSONArray error_timestamps = json_word.getJSONArray("error_timestamps");
+                JSONArray temp_error_timestamps = new JSONArray();
+                for (int j = 0; j < error_timestamps.length(); j++) {
+                    Date temp_time = new Date(Long.parseLong(error_timestamps.get(i).toString()));
+                    long diff = abs(temp_time.getTime() - current_time.getTime());
+                    long dayDiff = TimeUnit.DAYS.convert(diff, TimeUnit.MILLISECONDS);
+                    if (dayDiff < 30) {
+                        temp_error_timestamps.put(error_timestamps.get(j));
+                    } else {
+                        error_count--;
+                    }
+                }
+                json_word.put("error_timestamps", temp_error_timestamps);
+                json_word.put("error_count", error_count);
             }
         } catch (JSONException e) {
             e.printStackTrace();
@@ -508,6 +607,7 @@ public class ExerciseActivity extends AppCompatActivity {
             word1.put("eng_word", "asymmetric");
             word1.put("chi_word", "(a)不對稱的");
             word1.put("error_count", 0);
+            word1.put("error_timestamp", new JSONArray());
             word1.put("correct_count", 0);
             word1.put("next_time", current_time.getTime());
         } catch (JSONException e) {
@@ -521,6 +621,7 @@ public class ExerciseActivity extends AppCompatActivity {
             word2.put("eng_word", "atheist");
             word2.put("chi_word", "(n)無神論");
             word2.put("error_count", 10);
+            word2.put("error_timestamp", new JSONArray());
             word2.put("correct_count", 0);
             word2.put("next_time", current_time.getTime());
 
